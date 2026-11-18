@@ -1,28 +1,5 @@
 ﻿import SwiftUI
 
-// MARK: - Shared Tab Bar
-
-struct MainTabView: View {
-    @Binding var selectedTab: ContentView.Tab
-
-    var body: some View {
-        TabView(selection: $selectedTab) {
-            HomeView()
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
-                }
-                .tag(ContentView.Tab.home)
-
-            HistoryView()
-                .tabItem {
-                    Label("History", systemImage: "clock.fill")
-                }
-                .tag(ContentView.Tab.history)
-        }
-        .tint(.black)
-    }
-}
-
 // MARK: - Article Card Model
 
 struct ArticleCard: Identifiable {
@@ -36,11 +13,10 @@ struct ArticleCard: Identifiable {
 
 struct HomeView: View {
 
-    // Sample data mirroring the Figma design placeholders
     let videoURL = URL(string: "https://www.youtube.com/watch?v=A98KioIRvtQ")
     let channelName = "Channel name"
     let videoName = "Video Name"
-    let diagnosisSummary = "This Video is/is not biased. because blah blah blah blah blah blah."
+    let diagnosisSummary = "This video is/is not biased. Because blah blah blah blah blah blah."
 
     let differentCards: [ArticleCard] = [
         ArticleCard(
@@ -56,16 +32,8 @@ struct HomeView: View {
     ]
 
     let similarCards: [ArticleCard] = [
-        ArticleCard(
-            title: "Video Name",
-            description: "",
-            url: URL(string: "https://www.youtube.com/watch?v=A98KioIRvtQ")
-        ),
-        ArticleCard(
-            title: "Video Name",
-            description: "",
-            url: URL(string: "https://www.youtube.com/watch?v=A98KioIRvtQ")
-        )
+        ArticleCard(title: "Video Name", description: "", url: URL(string: "https://www.youtube.com/watch?v=A98KioIRvtQ")),
+        ArticleCard(title: "Video Name", description: "", url: URL(string: "https://www.youtube.com/watch?v=A98KioIRvtQ"))
     ]
 
     var body: some View {
@@ -89,7 +57,6 @@ struct HomeView: View {
                         Text(channelName)
                             .font(.system(size: 13))
                             .foregroundColor(.black)
-
                         if let url = videoURL {
                             Link(videoName, destination: url)
                                 .font(.system(size: 14, weight: .semibold))
@@ -107,7 +74,6 @@ struct HomeView: View {
                         Text("Diagnosis:")
                             .font(.system(size: 20, weight: .semibold))
                             .tracking(-0.4)
-
                         Text(diagnosisSummary)
                             .font(.system(size: 14, weight: .semibold))
                             .tracking(-0.28)
@@ -124,7 +90,6 @@ struct HomeView: View {
                             .font(.system(size: 20, weight: .semibold))
                             .tracking(-0.4)
                             .padding(.horizontal, 20)
-
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
                                 ForEach(differentCards) { card in
@@ -144,7 +109,6 @@ struct HomeView: View {
                             .font(.system(size: 20, weight: .semibold))
                             .tracking(-0.4)
                             .padding(.horizontal, 20)
-
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
                                 ForEach(similarCards) { card in
@@ -214,7 +178,6 @@ struct SimilarVideoCard: View {
                 .scaledToFill()
                 .frame(width: 172, height: 96)
                 .clipped()
-
             if let url = card.url {
                 Link(card.title, destination: url)
                     .font(.system(size: 14, weight: .semibold))
@@ -246,7 +209,7 @@ struct HamburgerMenuButton: View {
     }
 }
 
-// MARK: - Color Helper
+// MARK: - Color Hex Helper
 
 extension Color {
     init(hex: String) {
@@ -254,8 +217,8 @@ extension Color {
         var int: UInt64 = 0
         Scanner(string: hex).scanHexInt64(&int)
         let r = Double((int >> 16) & 0xFF) / 255
-        let g = Double((int >> 8) & 0xFF) / 255
-        let b = Double(int & 0xFF) / 255
+        let g = Double((int >> 8)  & 0xFF) / 255
+        let b = Double( int        & 0xFF) / 255
         self.init(red: r, green: g, blue: b)
     }
 }

@@ -3,126 +3,148 @@
 // MARK: - Results View
 
 struct ResultsView: View {
-    let videoURL: URL?
-    let videoName: String
-    let channelName: String
-    let diagnosisSummary: String
-
-    // Sample related content matching the Figma design
-    let differentItems: [RelatedItem] = [
-        RelatedItem(label: "Different article 1"),
-        RelatedItem(label: "Different article 2")
-    ]
-    let similarItems: [RelatedItem] = [
-        RelatedItem(label: "Similar video 1"),
-        RelatedItem(label: "Similar video 2")
-    ]
+    let result: AnalysisResult
+    let originalURL: String
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
 
-                    // Video placeholder / thumbnail area
-                    ZStack {
-                        Color(hex: "#d9d9d9")
+                // Thumbnail / media preview
+                ZStack {
+                    Color(hex: "#d9d9d9")
+                        .frame(height: 183)
+
+                    if let img = result.mediaThumbnail {
+                        Image(uiImage: img)
+                            .resizable()
+                            .scaledToFill()
                             .frame(height: 183)
-
-                        Image(systemName: "play.circle.fill")
-                            .font(.system(size: 60))
-                            .foregroundColor(.white.opacity(0.8))
+                            .clipped()
+                    } else {
+                        Image(systemName: "photo.fill")
+                            .font(.system(size: 48))
+                            .foregroundColor(.white.opacity(0.6))
                     }
-                    .padding(.horizontal, 22)
-                    .padding(.top, 12)
+                }
+                .padding(.horizontal, 22)
+                .padding(.top, 12)
 
-                    Divider().padding(.top, 12)
+                Divider().padding(.top, 12)
 
-                    // Channel name + video link
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(channelName)
+                // Source + link
+                VStack(alignment: .leading, spacing: 4) {
+                    if !result.mediaSource.isEmpty {
+                        Text(result.mediaSource)
                             .font(.system(size: 13))
                             .foregroundColor(.black)
+                    }
+                    if let url = URL(string: originalURL) {
+                        Link(result.mediaTitle.isEmpty ? originalURL : result.mediaTitle,
+                             destination: url)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.black)
+                            .underline()
+                    } else {
+                        Text(result.mediaTitle)
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                }
+                .padding(.horizontal, 22)
+                .padding(.vertical, 12)
 
-                        if let url = videoURL {
-                            Link(videoName, destination: url)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.black)
-                                .underline()
-                        } else {
-                            Text(videoName)
-                                .font(.system(size: 14, weight: .semibold))
+                Divider()
+
+                // Diagnosis section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Diagnosis:")
+                        .font(.system(size: 20, weight: .semibold))
+                        .tracking(-0.4)
+
+                    Text(result.summary)
+                        .font(.system(size: 14, weight: .semibold))
+                        .tracking(-0.28)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    // Bias gauge (only shown when bias detection was run)
+                    if let score = result.biasScore {
+                        BiasIndicator(value: score)
+                            .padding(.bottom, 4)
+
+                        HStack {
+                            Text("No bias")
+                                .font(.system(size: 10))
+                                .foregroundColor(.gray)
+                            Spacer()
+                            Text("Heavily biased")
+                                .font(.system(size: 10))
+                                .foregroundColor(.gray)
                         }
                     }
-                    .padding(.horizontal, 22)
-                    .padding(.vertical, 12)
 
-                    Divider()
-
-                    // Diagnosis section
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Diagnosis:")
-                            .font(.system(size: 20, weight: .semibold))
-                            .tracking(-0.4)
-
-                        Text(diagnosisSummary)
-                            .font(.system(size: 14, weight: .semibold))
-                            .tracking(-0.28)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        // Bias arrow indicator
-                        BiasIndicator(value: 0.65)
+                    if let detail = result.biasDetail {
+                        ResultDetailCard(icon: "chart.bar.fill", title: "Bias Detail", body: detail)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
 
+                    if let detail = result.aiDetail {
+                        ResultDetailCard(icon: "cpu.fill", title: "AI Detection", body: detail)
+                    }
+
+                    if let detail = result.factDetail {
+                        ResultDetailCard(icon: "checkmark.seal.fill", title: "Fact Check", body: detail)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+
+                // Different section
+                if !result.relatedDifferent.isEmpty {
                     Divider()
-
-                    // Different section
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Different:")
                             .font(.system(size: 20, weight: .semibold))
                             .tracking(-0.4)
                             .padding(.horizontal, 20)
 
-                        ForEach(differentItems) { item in
-                            ResultsPlaceholderRow(label: item.label)
+                        ForEach(result.relatedDifferent) { item in
+                            ResultsLinkRow(item: item)
                         }
                     }
                     .padding(.vertical, 16)
+                }
 
+                // Similar section
+                if !result.relatedSimilar.isEmpty {
                     Divider()
-
-                    // Similar section
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Similar:")
                             .font(.system(size: 20, weight: .semibold))
                             .tracking(-0.4)
                             .padding(.horizontal, 20)
 
-                        ForEach(similarItems) { item in
-                            ResultsPlaceholderRow(label: item.label)
+                        ForEach(result.relatedSimilar) { item in
+                            ResultsLinkRow(item: item)
                         }
                     }
                     .padding(.vertical, 16)
                     .padding(.bottom, 20)
                 }
             }
-            .navigationTitle("App name")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    HamburgerMenuButton()
-                }
+        }
+        .navigationTitle("Results")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                HamburgerMenuButton()
             }
         }
     }
 }
 
 // MARK: - Bias Arrow Indicator
-// Represents the rotated arrow icon shown in the Results Figma frame
 
 struct BiasIndicator: View {
-    /// 0.0 = fully left (unbiased), 1.0 = fully right (biased)
+    /// 0.0 = no bias, 1.0 = heavily biased
     let value: Double
 
     var body: some View {
@@ -141,7 +163,7 @@ struct BiasIndicator: View {
                 Image(systemName: "arrowtriangle.down.fill")
                     .font(.system(size: 14))
                     .foregroundColor(.black)
-                    .offset(x: geo.size.width * value - 7, y: -14)
+                    .offset(x: (geo.size.width * CGFloat(value)).clamped(to: 0...(geo.size.width - 14)), y: -14)
             }
         }
         .frame(height: 24)
@@ -149,22 +171,67 @@ struct BiasIndicator: View {
     }
 }
 
-// MARK: - Results Placeholder Row
-
-struct RelatedItem: Identifiable {
-    let id = UUID()
-    let label: String
+extension CGFloat {
+    func clamped(to range: ClosedRange<CGFloat>) -> CGFloat {
+        min(max(self, range.lowerBound), range.upperBound)
+    }
 }
 
-struct ResultsPlaceholderRow: View {
-    let label: String
+// MARK: - Result Detail Card
+
+struct ResultDetailCard: View {
+    let icon: String
+    let title: String
+    let body: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 13))
+                    .foregroundColor(.black)
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.black)
+            }
+            Text(body)
+                .font(.system(size: 13))
+                .foregroundColor(Color(hex: "#333333"))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(hex: "#f5f5f5"))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(hex: "#e0e0e0"), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Results Link Row
+
+struct ResultsLinkRow: View {
+    let item: RelatedLink
 
     var body: some View {
         HStack {
-            Text(label)
-                .font(.system(size: 14))
-                .foregroundColor(.black)
-            Spacer()
+            if let url = item.url {
+                Link(destination: url) {
+                    Text(item.title)
+                        .font(.system(size: 14))
+                        .foregroundColor(.black)
+                        .underline()
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                Text(item.title)
+                    .font(.system(size: 14))
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             Image(systemName: "chevron.right")
                 .foregroundColor(.gray)
         }

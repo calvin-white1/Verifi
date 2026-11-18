@@ -2,39 +2,58 @@
 
 // MARK: - History Entry Model
 
-struct HistoryEntry: Identifiable {
-    let id = UUID()
+struct HistoryEntry: Identifiable, Codable {
+    let id: UUID
     let title: String
-    let result: String       // e.g. "Biased" / "Not biased"
+    let result: String
     let channelOrSource: String
-    let thumbnailName: String?   // local asset name, nil shows grey placeholder
+    // Thumbnail stored as base64 JPEG for Codable persistence
+    private var thumbnailData: Data?
+
+    // Computed convenience for UI
+    var thumbnailImage: UIImage? {
+        get { thumbnailData.flatMap { UIImage(data: $0) } }
+    }
+
+    init(title: String, result: String, channelOrSource: String, thumbnailImage: UIImage?) {
+        self.id = UUID()
+        self.title = title
+        self.result = result
+        self.channelOrSource = channelOrSource
+        self.thumbnailData = thumbnailImage?.jpegData(compressionQuality: 0.6)
+    }
 }
 
 // MARK: - History View
 
 struct HistoryView: View {
-
-    // Sample entries that match the Figma design placeholders
-    @State private var entries: [HistoryEntry] = [
-        HistoryEntry(title: "Video name",    result: "Biased/not biased", channelOrSource: "Channel name", thumbnailName: "home_thumbnail"),
-        HistoryEntry(title: "News story",    result: "Biased/not biased", channelOrSource: "News station",  thumbnailName: nil),
-        HistoryEntry(title: "Image name or #", result: "Biased/not biased", channelOrSource: "",           thumbnailName: nil),
-        HistoryEntry(title: "Entry 4",       result: "Biased/not biased", channelOrSource: "",             thumbnailName: nil),
-        HistoryEntry(title: "Entry 5",       result: "Biased/not biased", channelOrSource: "",             thumbnailName: nil),
-        HistoryEntry(title: "Entry 6",       result: "Biased/not biased", channelOrSource: "",             thumbnailName: nil),
-    ]
+    @EnvironmentObject var appState: AppState
 
     var body: some View {
         NavigationView {
-            List {
-                ForEach(entries) { entry in
-                    HistoryRow(entry: entry)
-                        .listRowInsets(EdgeInsets())
-                        .listRowSeparator(.hidden)
+            Group {
+                if appState.history.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 48))
+                            .foregroundColor(.gray)
+                        Text("No analyses yet.")
+                            .font(.system(size: 16))
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        ForEach(appState.history) { entry in
+                            HistoryRow(entry: entry)
+                                .listRowInsets(EdgeInsets())
+                                .listRowSeparator(.hidden)
+                        }
+                        .onDelete(perform: delete)
+                    }
+                    .listStyle(.plain)
                 }
-                .onDelete(perform: delete)
             }
-            .listStyle(.plain)
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -49,7 +68,8 @@ struct HistoryView: View {
     }
 
     private func delete(at offsets: IndexSet) {
-        entries.remove(atOffsets: offsets)
+        appState.history.remove(atOffsets: offsets)
+        HistoryStore.save(appState.history)
     }
 }
 
@@ -69,16 +89,16 @@ struct HistoryRow: View {
                     .lineLimit(1)
 
                 Text(entry.result)
-                    .font(.system(size: 16, weight: .medium))
-                    .tracking(-0.32)
+                    .font(.system(size: 14, weight: .medium))
+                    .tracking(-0.28)
                     .foregroundColor(.black)
                     .lineLimit(2)
 
                 if !entry.channelOrSource.isEmpty {
                     Text(entry.channelOrSource)
-                        .font(.system(size: 15, weight: .medium))
-                        .tracking(-0.3)
-                        .foregroundColor(.black)
+                        .font(.system(size: 13, weight: .medium))
+                        .tracking(-0.26)
+                        .foregroundColor(.gray)
                         .lineLimit(1)
                 }
             }
@@ -88,7 +108,7 @@ struct HistoryRow: View {
 
             // Thumbnail
             Group {
-                if let name = entry.thumbnailName, let img = UIImage(named: name) {
+                if let img = entry.thumbnailImage {
                     Image(uiImage: img)
                         .resizable()
                         .scaledToFill()
@@ -98,7 +118,6 @@ struct HistoryRow: View {
             }
             .frame(width: 133, height: 79)
             .clipped()
-            .padding(.trailing, 0)
             .padding(.vertical, 14)
         }
         .frame(height: 108)
