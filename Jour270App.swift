@@ -7,14 +7,10 @@ struct Jour270App: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                // Receives URLs opened via a registered URL scheme (e.g. jour270://)
-                // or from the iOS share sheet when the app is set as an action extension.
                 .onOpenURL { url in
-                    // Strip the custom scheme wrapper if present (jour270://https://...)
                     var urlString = url.absoluteString
                     if let range = urlString.range(of: "://"),
                        urlString.hasPrefix("jour270") {
-                        // e.g. jour270://https://youtube.com/... -> https://youtube.com/...
                         urlString = String(urlString[range.upperBound...])
                     }
                     NotificationCenter.default.post(
@@ -36,19 +32,17 @@ struct RootView: View {
     @StateObject private var appState = AppState()
 
     var body: some View {
-        if appState.isSignedIn {
-            MainTabView()
-                .environmentObject(appState)
-        } else {
-            SignInView(isSignedIn: $appState.isSignedIn)
-        }
+        MainTabView()
+            .environmentObject(appState)
+            .preferredColorScheme(appState.isDarkMode ? .dark : .light)
     }
 }
 
 // MARK: - App State
 
 class AppState: ObservableObject {
-    @Published var isSignedIn = false
+    // Theme
+    @Published var isDarkMode: Bool = true
 
     // Criteria inputs
     @Published var videoURLString = ""
@@ -92,7 +86,9 @@ class AppState: ObservableObject {
                         title: result.mediaTitle.isEmpty ? urlString : result.mediaTitle,
                         result: result.summary,
                         channelOrSource: result.mediaSource,
-                        thumbnailImage: result.mediaThumbnail
+                        thumbnailImage: result.mediaThumbnail,
+                        criteria: criteria,
+                        url: urlString
                     )
                     self.history.insert(entry, at: 0)
                     HistoryStore.save(self.history)
@@ -105,12 +101,18 @@ class AppState: ObservableObject {
             }
         }
     }
+
+    func resetToHome() {
+        showResults = false
+        videoURLString = ""
+        analysisError = nil
+    }
 }
 
 // MARK: - History Store
 
 struct HistoryStore {
-    private static let key = "history_entries_v2"
+    private static let key = "history_entries_v3"
 
     static func load() -> [HistoryEntry] {
         guard let data = UserDefaults.standard.data(forKey: key),
@@ -133,46 +135,149 @@ struct MainTabView: View {
     @State private var selectedTab = 0
 
     var body: some View {
-        TabView(selection: $selectedTab) {
+        ZStack(alignment: .bottom) {
+            // Page content
+            ZStack {
+                HomeView(onAnalyzeTap: { selectedTab = 1 })
+                    .opacity(selectedTab == 0 ? 1 : 0)
+                    .allowsHitTesting(selectedTab == 0)
 
-            // Tab 0: Criteria -> Results flow
-            NavigationView {
-                CriteriaView(
-                    videoURL: $appState.videoURLString,
-                    biasDetection: $appState.biasDetection,
-                    aiDetection: $appState.aiDetection,
-                    factChecking: $appState.factChecking,
-                    isAnalyzing: appState.isAnalyzing,
-                    errorMessage: appState.analysisError,
-                    onAnalyze: { appState.runAnalysis() }
-                )
-                .background(
-                    NavigationLink(
-                        destination: Group {
-                            if let result = appState.analysisResult {
-                                ResultsView(
-                                    result: result,
-                                    originalURL: appState.videoURLString
-                                )
-                            }
-                        },
-                        isActive: $appState.showResults
-                    ) { EmptyView() }
-                )
+                CriteriaFlowView(onDismissResults: {
+                    appState.resetToHome()
+                    selectedTab = 0
+                })
+                .opacity(selectedTab == 1 ? 1 : 0)
+                .allowsHitTesting(selectedTab == 1)
+
+                HistoryView()
+                    .opacity(selectedTab == 2 ? 1 : 0)
+                    .allowsHitTesting(selectedTab == 2)
             }
-            .tabItem { Label("Analyze", systemImage: "magnifyingglass") }
-            .tag(0)
+            .ignoresSafeArea(edges: .bottom)
 
-            // Tab 1: Home feed
-            HomeView()
-                .tabItem { Label("Home", systemImage: "house.fill") }
-                .tag(1)
-
-            // Tab 2: History
-            HistoryView()
-                .tabItem { Label("History", systemImage: "clock.fill") }
-                .tag(2)
+            // Custom tab bar always on top
+            AppTabBar(selectedTab: $selectedTab)
         }
-        .tint(.black)
+        .background(Color.appBackground)
+        .ignoresSafeArea(edges: .bottom)
+    }
+}
+
+// MARK: - Custom Tab Bar
+
+struct AppTabBar: View {
+    @Binding var selectedTab: Int
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider().opacity(0.3)
+
+            HStack(spacing: 0) {
+                // Home
+                TabBarButton(
+                    icon: "house.fill",
+                    label: "Home",
+                    isActive: selectedTab == 0
+                ) { selectedTab = 0 }
+
+                // Analyze
+                TabBarButton(
+                    icon: "magnifyingglass",
+                    label: "Analyze",
+                    isActive: selectedTab == 1
+                ) { selectedTab = 1 }
+
+                // History
+                TabBarButton(
+                    icon: "clock.fill",
+                    label: "History",
+                    isActive: selectedTab == 2
+                ) { selectedTab = 2 }
+            }
+            .frame(height: 49)
+            .padding(.bottom, 20) // safe area
+        }
+        .background(
+            Color.appBackground
+                .opacity(0.95)
+        )
+    }
+}
+
+struct TabBarButton: View {
+    let icon: String
+    let label: String
+    let isActive: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 20))
+                Text(label)
+                    .font(.system(size: 10))
+            }
+            .foregroundColor(isActive ? Color.appForeground : Color.appForeground.opacity(0.4))
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+// MARK: - Theme Colors
+
+extension Color {
+    static var appBackground: Color { Color("AppBackground") }
+    static var appForeground: Color { Color("AppForeground") }
+    static var appCard: Color { Color("AppCard") }
+    static var appDivider: Color { Color("AppDivider") }
+    static var appSubtle: Color { Color("AppSubtle") }
+
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let r = Double((int >> 16) & 0xFF) / 255
+        let g = Double((int >> 8)  & 0xFF) / 255
+        let b = Double( int        & 0xFF) / 255
+        self.init(red: r, green: g, blue: b)
+    }
+}
+
+// MARK: - App Header (shared nav bar)
+
+struct AppHeader: View {
+    let title: String
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        ZStack {
+            Text(title)
+                .font(.system(size: 20, weight: .semibold))
+                .tracking(-0.4)
+                .foregroundColor(Color.appForeground)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            HStack {
+                Spacer()
+                // Sun / Moon theme toggle
+                Button(action: { appState.isDarkMode.toggle() }) {
+                    Image(systemName: appState.isDarkMode ? "sun.max.fill" : "moon.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(Color.appForeground)
+                        .frame(width: 44, height: 44)
+                }
+            }
+        }
+        .frame(height: 44)
+        .padding(.horizontal, 8)
+        .background(Color.appBackground)
+        .overlay(
+            Rectangle()
+                .fill(Color.appForeground.opacity(0.15))
+                .frame(height: 0.5),
+            alignment: .bottom
+        )
     }
 }

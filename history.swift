@@ -1,4 +1,5 @@
 ﻿import SwiftUI
+import UIKit
 
 // MARK: - History Entry Model
 
@@ -7,19 +8,37 @@ struct HistoryEntry: Identifiable, Codable {
     let title: String
     let result: String
     let channelOrSource: String
-    // Thumbnail stored as base64 JPEG for Codable persistence
+    let url: String
+    let criteriaFlags: CriteriaFlags
+
     private var thumbnailData: Data?
 
-    // Computed convenience for UI
     var thumbnailImage: UIImage? {
-        get { thumbnailData.flatMap { UIImage(data: $0) } }
+        thumbnailData.flatMap { UIImage(data: $0) }
     }
 
-    init(title: String, result: String, channelOrSource: String, thumbnailImage: UIImage?) {
+    struct CriteriaFlags: Codable {
+        var biasDetection: Bool
+        var aiDetection: Bool
+        var factChecking: Bool
+    }
+
+    init(title: String,
+         result: String,
+         channelOrSource: String,
+         thumbnailImage: UIImage?,
+         criteria: AnalysisCriteria,
+         url: String) {
         self.id = UUID()
         self.title = title
         self.result = result
         self.channelOrSource = channelOrSource
+        self.url = url
+        self.criteriaFlags = CriteriaFlags(
+            biasDetection: criteria.biasDetection,
+            aiDetection: criteria.aiDetection,
+            factChecking: criteria.factChecking
+        )
         self.thumbnailData = thumbnailImage?.jpegData(compressionQuality: 0.6)
     }
 }
@@ -28,43 +47,79 @@ struct HistoryEntry: Identifiable, Codable {
 
 struct HistoryView: View {
     @EnvironmentObject var appState: AppState
+    @State private var editMode: EditMode = .inactive
 
     var body: some View {
-        NavigationView {
+        VStack(spacing: 0) {
+            // Header with optional Edit button
+            ZStack {
+                Text("History")
+                    .font(.system(size: 20, weight: .semibold))
+                    .tracking(-0.4)
+                    .foregroundColor(Color.appForeground)
+                    .frame(maxWidth: .infinity, alignment: .center)
+
+                HStack {
+                    if !appState.history.isEmpty {
+                        Button(editMode == .active ? "Done" : "Edit") {
+                            editMode = editMode == .active ? .inactive : .active
+                        }
+                        .font(.system(size: 15))
+                        .foregroundColor(Color.appForeground)
+                        .padding(.leading, 16)
+                    }
+                    Spacer()
+                    // Sun / Moon theme toggle
+                    Button(action: { appState.isDarkMode.toggle() }) {
+                        Image(systemName: appState.isDarkMode ? "sun.max.fill" : "moon.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(Color.appForeground)
+                            .frame(width: 44, height: 44)
+                    }
+                }
+            }
+            .frame(height: 44)
+            .padding(.horizontal, 8)
+            .background(Color.appBackground)
+            .overlay(
+                Rectangle()
+                    .fill(Color.appForeground.opacity(0.15))
+                    .frame(height: 0.5),
+                alignment: .bottom
+            )
+
             Group {
                 if appState.history.isEmpty {
                     VStack(spacing: 16) {
+                        Spacer()
                         Image(systemName: "clock")
                             .font(.system(size: 48))
-                            .foregroundColor(.gray)
+                            .foregroundColor(Color.appForeground.opacity(0.3))
                         Text("No analyses yet.")
                             .font(.system(size: 16))
-                            .foregroundColor(.gray)
+                            .foregroundColor(Color.appSubtle)
+                        Spacer()
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity)
                 } else {
                     List {
                         ForEach(appState.history) { entry in
                             HistoryRow(entry: entry)
                                 .listRowInsets(EdgeInsets())
                                 .listRowSeparator(.hidden)
+                                .listRowBackground(Color.appBackground)
                         }
                         .onDelete(perform: delete)
                     }
                     .listStyle(.plain)
-                }
-            }
-            .navigationTitle("History")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    HamburgerMenuButton()
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
+                    .background(Color.appBackground)
+                    .scrollContentBackground(.hidden)
+                    .environment(\.editMode, $editMode)
                 }
             }
         }
+        .background(Color.appBackground)
+        .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 69) }
     }
 
     private func delete(at offsets: IndexSet) {
@@ -85,22 +140,25 @@ struct HistoryRow: View {
                 Text(entry.title)
                     .font(.system(size: 20, weight: .semibold))
                     .tracking(-0.4)
-                    .foregroundColor(.black)
+                    .foregroundColor(Color.appForeground)
                     .lineLimit(1)
 
                 Text(entry.result)
                     .font(.system(size: 14, weight: .medium))
                     .tracking(-0.28)
-                    .foregroundColor(.black)
+                    .foregroundColor(Color.appForeground)
                     .lineLimit(2)
 
                 if !entry.channelOrSource.isEmpty {
                     Text(entry.channelOrSource)
                         .font(.system(size: 13, weight: .medium))
                         .tracking(-0.26)
-                        .foregroundColor(.gray)
+                        .foregroundColor(Color.appSubtle)
                         .lineLimit(1)
                 }
+
+                // Criteria pill tags
+                CriteriaTags(flags: entry.criteriaFlags)
             }
             .padding(.leading, 14)
             .padding(.vertical, 14)
@@ -113,19 +171,53 @@ struct HistoryRow: View {
                         .resizable()
                         .scaledToFill()
                 } else {
-                    Color(hex: "#d9d9d9")
+                    Color.appCard
+                        .overlay(
+                            Image(systemName: "photo")
+                                .foregroundColor(Color.appForeground.opacity(0.3))
+                        )
                 }
             }
             .frame(width: 133, height: 79)
             .clipped()
             .padding(.vertical, 14)
         }
-        .frame(height: 108)
-        .background(Color.white)
+        .frame(minHeight: 108)
+        .background(Color.appBackground)
         .overlay(
             Rectangle()
-                .stroke(Color.black.opacity(0.2), lineWidth: 0.5),
+                .fill(Color.appDivider)
+                .frame(height: 0.5),
             alignment: .bottom
         )
+    }
+}
+
+// MARK: - Criteria Tags
+
+struct CriteriaTags: View {
+    let flags: HistoryEntry.CriteriaFlags
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if flags.biasDetection { tag("Bias") }
+            if flags.aiDetection   { tag("AI") }
+            if flags.factChecking  { tag("Facts") }
+        }
+    }
+
+    @ViewBuilder
+    private func tag(_ label: String) -> some View {
+        Text(label)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundColor(Color.appForeground)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color.appCard)
+            .cornerRadius(4)
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(Color.appDivider, lineWidth: 0.5)
+            )
     }
 }
