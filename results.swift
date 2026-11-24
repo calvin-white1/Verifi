@@ -241,6 +241,13 @@ struct ResultsBottomBar: View {
 
 // MARK: - Bias Indicator
 
+private func biasArrowOffset(width: CGFloat, value: Double) -> CGFloat {
+    let raw = width * CGFloat(value)
+    if raw < 0 { return 0 }
+    if raw > width - 14 { return width - 14 }
+    return raw
+}
+
 struct BiasIndicator: View {
     let value: Double
 
@@ -261,7 +268,7 @@ struct BiasIndicator: View {
                     .font(.system(size: 14))
                     .foregroundStyle(Color.appForeground)
                     .offset(
-                        x: min(max(geo.size.width * CGFloat(value), 0), geo.size.width - 14),
+                        x: biasArrowOffset(width: geo.size.width, value: value),
                         y: -14
                     )
             }
@@ -333,12 +340,4 @@ struct ResultsLinkRow: View {
                 .foregroundStyle(Color.appSubtle)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(Color.appBackground)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.appDivider)
-                .frame(height: 0.5)
-        }
-    }
-}
+        .padding(.vertical, 
