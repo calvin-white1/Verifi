@@ -41,16 +41,13 @@ struct RootView: View {
 // MARK: - App State
 
 class AppState: ObservableObject {
-    // Theme
     @Published var isDarkMode: Bool = true
 
-    // Criteria inputs
     @Published var videoURLString = ""
     @Published var biasDetection = true
     @Published var aiDetection = false
     @Published var factChecking = false
 
-    // Analysis lifecycle
     @Published var isAnalyzing = false
     @Published var showResults = false
     @Published var analysisResult: AnalysisResult? = nil
@@ -58,7 +55,6 @@ class AppState: ObservableObject {
 
     private let service = AnalysisService()
 
-    // History (persisted in UserDefaults)
     @Published var history: [HistoryEntry] = HistoryStore.load()
 
     func runAnalysis() {
@@ -136,7 +132,6 @@ struct MainTabView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Page content
             ZStack {
                 HomeView(onAnalyzeTap: { selectedTab = 1 })
                     .opacity(selectedTab == 0 ? 1 : 0)
@@ -155,7 +150,6 @@ struct MainTabView: View {
             }
             .ignoresSafeArea(edges: .bottom)
 
-            // Custom tab bar always on top
             AppTabBar(selectedTab: $selectedTab)
         }
         .background(Color.appBackground)
@@ -171,37 +165,19 @@ struct AppTabBar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Divider().opacity(0.3)
+            Rectangle()
+                .fill(Color.appForeground.opacity(0.15))
+                .frame(height: 0.5)
 
             HStack(spacing: 0) {
-                // Home
-                TabBarButton(
-                    icon: "house.fill",
-                    label: "Home",
-                    isActive: selectedTab == 0
-                ) { selectedTab = 0 }
-
-                // Analyze
-                TabBarButton(
-                    icon: "magnifyingglass",
-                    label: "Analyze",
-                    isActive: selectedTab == 1
-                ) { selectedTab = 1 }
-
-                // History
-                TabBarButton(
-                    icon: "clock.fill",
-                    label: "History",
-                    isActive: selectedTab == 2
-                ) { selectedTab = 2 }
+                TabBarButton(icon: "house.fill",       label: "Home",    isActive: selectedTab == 0) { selectedTab = 0 }
+                TabBarButton(icon: "magnifyingglass",  label: "Analyze", isActive: selectedTab == 1) { selectedTab = 1 }
+                TabBarButton(icon: "clock.fill",       label: "History", isActive: selectedTab == 2) { selectedTab = 2 }
             }
             .frame(height: 49)
-            .padding(.bottom, 20) // safe area
+            .padding(.bottom, 20)
         }
-        .background(
-            Color.appBackground
-                .opacity(0.95)
-        )
+        .background(Color.appBackground)
     }
 }
 
@@ -219,33 +195,13 @@ struct TabBarButton: View {
                 Text(label)
                     .font(.system(size: 10))
             }
-            .foregroundColor(isActive ? Color.appForeground : Color.appForeground.opacity(0.4))
+            .foregroundStyle(isActive ? Color.appForeground : Color.appForeground.opacity(0.4))
             .frame(maxWidth: .infinity)
         }
     }
 }
 
-// MARK: - Theme Colors
-
-extension Color {
-    static var appBackground: Color { Color("AppBackground") }
-    static var appForeground: Color { Color("AppForeground") }
-    static var appCard: Color { Color("AppCard") }
-    static var appDivider: Color { Color("AppDivider") }
-    static var appSubtle: Color { Color("AppSubtle") }
-
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let r = Double((int >> 16) & 0xFF) / 255
-        let g = Double((int >> 8)  & 0xFF) / 255
-        let b = Double( int        & 0xFF) / 255
-        self.init(red: r, green: g, blue: b)
-    }
-}
-
-// MARK: - App Header (shared nav bar)
+// MARK: - Shared App Header
 
 struct AppHeader: View {
     let title: String
@@ -256,16 +212,15 @@ struct AppHeader: View {
             Text(title)
                 .font(.system(size: 20, weight: .semibold))
                 .tracking(-0.4)
-                .foregroundColor(Color.appForeground)
+                .foregroundStyle(Color.appForeground)
                 .frame(maxWidth: .infinity, alignment: .center)
 
             HStack {
                 Spacer()
-                // Sun / Moon theme toggle
                 Button(action: { appState.isDarkMode.toggle() }) {
                     Image(systemName: appState.isDarkMode ? "sun.max.fill" : "moon.fill")
                         .font(.system(size: 20))
-                        .foregroundColor(Color.appForeground)
+                        .foregroundStyle(Color.appForeground)
                         .frame(width: 44, height: 44)
                 }
             }
@@ -273,11 +228,30 @@ struct AppHeader: View {
         .frame(height: 44)
         .padding(.horizontal, 8)
         .background(Color.appBackground)
-        .overlay(
+        .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(Color.appForeground.opacity(0.15))
-                .frame(height: 0.5),
-            alignment: .bottom
-        )
+                .frame(height: 0.5)
+        }
+    }
+}
+
+// MARK: - Named Colors
+
+extension Color {
+    static var appBackground: Color { Color("AppBackground") }
+    static var appForeground: Color { Color("AppForeground") }
+    static var appCard: Color      { Color("AppCard") }
+    static var appDivider: Color   { Color("AppDivider") }
+    static var appSubtle: Color    { Color("AppSubtle") }
+
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let r = Double((int >> 16) & 0xFF) / 255
+        let g = Double((int >> 8)  & 0xFF) / 255
+        let b = Double( int        & 0xFF) / 255
+        self.init(red: r, green: g, blue: b)
     }
 }
