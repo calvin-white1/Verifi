@@ -261,7 +261,7 @@ struct BiasIndicator: View {
                     .font(.system(size: 14))
                     .foregroundStyle(Color.appForeground)
                     .offset(
-                        x: (geo.size.width * CGFloat(value)).clamped(to: 0...(geo.size.width - 14)),
+                        x: min(max(geo.size.width * CGFloat(value), 0), geo.size.width - 14),
                         y: -14
                     )
             }
@@ -271,11 +271,7 @@ struct BiasIndicator: View {
     }
 }
 
-extension CGFloat {
-    func clamped(to range: ClosedRange<CGFloat>) -> CGFloat {
-        min(max(self, range.lowerBound), range.upperBound)
-    }
-}
+
 
 // MARK: - Result Detail Card
 // Properties renamed to avoid clash with SwiftUI's `body` and `title` protocol members.
